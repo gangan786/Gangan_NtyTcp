@@ -167,6 +167,7 @@ int epoll_ctl(int epid, int op, int sockid, struct epoll_event *event) {
 
 		struct epitem tmp;
 		tmp.sockfd = sockid;
+		// 判断是否已存在节点了，有则直接返回
 		struct epitem *epi = RB_FIND(_epoll_rb_socket, &ep->rbr, &tmp);
 		if (epi) {
 			nty_trace_epoll("rbtree is exist\n");
@@ -324,14 +325,20 @@ int epoll_wait(int epid, struct epoll_event *events, int maxevents, int timeout)
 	
 	while (num != 0 && !LIST_EMPTY(&ep->rdlist)) { //EPOLLET
 
+	    // 每次都从事件就绪链表中获取头节点
 		struct epitem *epi = LIST_FIRST(&ep->rdlist);
+		// 把该节点从事件就绪链表中移除
 		LIST_REMOVE(epi, rdlink);
+		// 标记当前节点是否在事件就绪链表中，因为上面已经把他移除了，所以这里rdy标记为0
+		// 当该节点被操作系统（参考epoll_event_callback）加入双向列表时，会把rdy标记为1
 		epi->rdy = 0;
 
+		// 将数据复制给调用方提供的events数组中
 		memcpy(&events[i++], &epi->event, sizeof(struct epoll_event));
 		
 		num --;
 		cnt ++;
+		// 事件就绪链表节点数量减一
 		ep->rdnum --;
 	}
 	
@@ -343,7 +350,8 @@ int epoll_wait(int epid, struct epoll_event *events, int maxevents, int timeout)
 
 /* 
  * insert callback inside to struct tcp_stream
- * 
+ * 当连接发生连接建立、连接关闭、连接可读、连接可写等事件时，
+ * 会调用此方法将该链接添加进事件就绪链表
  */
 int epoll_event_callback(struct eventpoll *ep, int sockid, uint32_t event) {
 

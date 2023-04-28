@@ -138,10 +138,14 @@ typedef struct _epoll_rb_socket ep_rb_tree;
 
 
 struct eventpoll {
+    // 指向红黑树根节点
 	ep_rb_tree rbr;
+	// 红黑树节点数量
 	int rbcnt;
-	
+
+	// 双向链表的头节点
 	LIST_HEAD( ,epitem) rdlist;
+	// 双向链表节点数
 	int rdnum;
 
 	int waiting;
